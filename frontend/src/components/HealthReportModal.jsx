@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Shield,
   X,
   Printer,
   AlertTriangle,
   FileCheck
 } from 'lucide-react';
+import { BrandMark } from './Brand';
 
 export default function HealthReportModal({ isOpen, onClose }) {
   const [report, setReport] = useState(null);
@@ -33,15 +33,14 @@ export default function HealthReportModal({ isOpen, onClose }) {
         {/* Modal Header */}
         <div className="modal-head">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-steel-500/15 border border-steel-500/30 flex items-center justify-center flex-shrink-0">
-              <Shield className="w-4 h-4 text-steel-400" />
-            </div>
-            <div>
+            <BrandMark size={36} />
+            <div className="leading-none">
               <h3 className="font-cond font-bold text-base text-zinc-100 tracking-wide">
-                Propulsion Health &amp; Airworthiness Certificate
+                GARUDA<span className="text-steel-400">TWIN</span>
+                <span className="text-zinc-500 text-xs font-normal ml-2">Propulsion Health &amp; Airworthiness Certificate</span>
               </h3>
-              <span className="text-xs font-mono text-steel-400">
-                DRDO / DDP / IDEX DEFENCE PROPULSION AUDIT
+              <span className="font-mono text-2xs uppercase tracking-[0.16em] text-zinc-600 mt-[3px] block">
+                DRDO · ADE &nbsp;|&nbsp; DDP / IDEX DEFENCE PROPULSION AUDIT
               </span>
             </div>
           </div>
