@@ -186,7 +186,7 @@ class EngineAnomalyDetector:
                 "title": "Lubrication Oil Pressure Loss / Scavenge Pump Fault",
                 "subsystem": "Lubrication",
                 "confidence": 98.0,
-                "evidence": f"Oil pressure at {telemetry['oil_pressure_kpa']} kPa is dangerously below 250 kPa nominal at {telemetry['rpm']} RPM."
+                "evidence": f"Oil pressure at {telemetry['oil_pressure_kpa']} kPa is dangerously below 250 kPa nominal at {telemetry['rpm']:.0f} RPM."
             })
             advisories.append({
                 "priority": "CRITICAL",

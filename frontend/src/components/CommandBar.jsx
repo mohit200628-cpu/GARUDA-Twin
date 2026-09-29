@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, RotateCcw, SlidersHorizontal } from 'lucide-react';
+import { FileText, RotateCcw, SlidersHorizontal, Volume2, VolumeX, BellRing } from 'lucide-react';
 import { BrandLockup } from './Brand';
 
 function Readout({ label, value, unit }) {
@@ -29,6 +29,7 @@ export default function CommandBar({
   onOpenPhysics,
   onClearFaults,
   isReplaying,
+  alarm,
 }) {
   const severity = aiDiagnostics?.severity || 'NOMINAL';
   const sev = SEVERITY[severity] || SEVERITY.NOMINAL;
@@ -79,6 +80,24 @@ export default function CommandBar({
           <div className={`chip ${sev.cls} ${isCritical ? 'animate-alert-breathe' : ''} !px-2.5 !py-1`}>
             {sev.text}
           </div>
+
+          {alarm && (
+            <>
+              <button
+                onClick={() => alarm.setMuted(!alarm.muted)}
+                className={`btn-quiet ${alarm.muted ? '!text-warn !border-warn/40' : ''}`}
+                title={alarm.muted ? 'Alarm sound is muted. Click to unmute.' : 'Alarm sound on. Click to mute.'}
+                aria-pressed={alarm.muted}
+              >
+                {alarm.muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                <span className="hidden lg:inline">{alarm.muted ? 'Muted' : 'Sound'}</span>
+              </button>
+              <button onClick={alarm.testAlarm} className="btn-quiet" title="Play a short alarm to check volume">
+                <BellRing className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">Test</span>
+              </button>
+            </>
+          )}
 
           <button onClick={onOpenPhysics} className="btn-quiet" title="Physics model vs measured residuals">
             <SlidersHorizontal className="w-3.5 h-3.5" />

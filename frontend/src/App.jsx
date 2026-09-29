@@ -9,6 +9,8 @@ import HealthPrognostics from './components/HealthPrognostics';
 import MissionControlPanel from './components/MissionControlPanel';
 import HealthReportModal from './components/HealthReportModal';
 import PhysicsResidualModal from './components/PhysicsResidualModal';
+import CriticalAlertModal, { CriticalBanner } from './components/CriticalAlertModal';
+import { useCriticalAlarm } from './hooks/useCriticalAlarm';
 
 const HISTORY_LEN = 150;
 // The sim streams at 10 Hz. Recording every frame would give a 15-second window,
@@ -181,6 +183,7 @@ export default function App() {
   };
 
   const severity = aiDiagnostics.severity || 'NOMINAL';
+  const alarm = useCriticalAlarm({ severity, rootCauses: aiDiagnostics.root_causes });
   const awaitingData = !systemState;
 
   return (
@@ -194,7 +197,10 @@ export default function App() {
         onOpenPhysics={() => setIsPhysicsOpen(true)}
         onClearFaults={handleClearFaults}
         isReplaying={Boolean(systemState?.replay_state?.is_replay)}
+        alarm={alarm}
       />
+
+      <CriticalBanner alarm={alarm} aiDiagnostics={aiDiagnostics} />
 
       <main className="flex-1 w-full max-w-[1800px] mx-auto px-4 sm:px-6 py-5 space-y-5">
 
@@ -248,6 +254,14 @@ export default function App() {
         </section>
 
       </main>
+
+      <CriticalAlertModal
+        alarm={alarm}
+        telemetry={telemetry}
+        aiDiagnostics={aiDiagnostics}
+        onOpenReport={() => setIsReportOpen(true)}
+        onClearFaults={handleClearFaults}
+      />
 
       <HealthReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} />
 
