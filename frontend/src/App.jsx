@@ -11,11 +11,9 @@ import HealthReportModal from './components/HealthReportModal';
 import PhysicsResidualModal from './components/PhysicsResidualModal';
 import CriticalAlertModal, { CriticalBanner } from './components/CriticalAlertModal';
 import { useCriticalAlarm } from './hooks/useCriticalAlarm';
+import UploadDatasetModal from './components/UploadDatasetModal';
 
 const HISTORY_LEN = 150;
-// The sim streams at 10 Hz. Recording every frame would give a 15-second window,
-// short enough that an injected fault scrolls off the trend while it is still
-// being discussed. Downsampling to 2 Hz holds ~75 s at the same buffer size.
 const MIN_SAMPLE_GAP_S = 0.5;
 
 export default function App() {
@@ -23,19 +21,27 @@ export default function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isPhysicsOpen, setIsPhysicsOpen] = useState(false);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [history, setHistory] = useState([]);
+  
+  // Dataset Management State
+  const [uploadedDataset, setUploadedDataset] = useState(null);
+  const [selectedDataset, setSelectedDataset] = useState('SORTIE_TAPAS_08_MISFIRE');
+  const [, setCustomPlaybackIndex] = useState(0);
+
   const wsRef = useRef(null);
   const lastStampRef = useRef(null);
   const replayModeRef = useRef(false);
+  const selectedDatasetRef = useRef('SORTIE_TAPAS_08_MISFIRE');
 
-  // Append a sample to the rolling trend buffer, skipping duplicates.
-  // The WebSocket and the fallback poll both feed setSystemState, so the
-  // payload timestamp is the only reliable de-duplication key.
+  useEffect(() => {
+    selectedDatasetRef.current = selectedDataset;
+  }, [selectedDataset]);
+
   const record = useCallback((data) => {
     const stamp = data?.timestamp;
     if (stamp == null) return;
 
-    // Replay data must not splice onto the live trace.
     const inReplay = Boolean(data?.replay_state?.is_replay);
     if (inReplay !== replayModeRef.current) {
       replayModeRef.current = inReplay;
@@ -44,9 +50,6 @@ export default function App() {
       return;
     }
 
-    // Drop duplicates (the socket and the fallback poll both deliver frames) and
-    // thin the stream to MIN_SAMPLE_GAP_S. A stamp that moves backwards means the
-    // clock was re-based, so let it through and re-baseline rather than stalling.
     const prev = lastStampRef.current;
     if (prev != null) {
       const gap = stamp - prev;
@@ -84,6 +87,7 @@ export default function App() {
 
   const ingest = useCallback((data) => {
     if (!data || !data.telemetry) return;
+    if (selectedDatasetRef.current === 'UPLOADED_DATASET') return;
     setSystemState(data);
     record(data);
   }, [record]);
@@ -126,10 +130,12 @@ export default function App() {
     connect();
 
     const pollInterval = setInterval(() => {
-      fetch('/api/telemetry/latest')
-        .then((res) => res.json())
-        .then(ingest)
-        .catch(() => {});
+      if (selectedDatasetRef.current !== 'UPLOADED_DATASET') {
+        fetch('/api/telemetry/latest')
+          .then((res) => res.json())
+          .then(ingest)
+          .catch(() => {});
+      }
     }, 1000);
 
     return () => {
@@ -146,10 +152,124 @@ export default function App() {
       body: body ? JSON.stringify(body) : undefined,
     });
 
-  const handleSelectProfile = (profileKey) => post('/api/simulation/profile', { profile_key: profileKey });
-  const handleInjectFault = (faultName, value) => post('/api/simulation/fault', { fault_name: faultName, value });
-  const handleClearFaults = () => post('/api/simulation/clear-faults');
-  const handleReplayControl = (req) => post('/api/replay/control', req);
+  const handleSelectProfile = (profileKey) => {
+    if (selectedDataset === 'UPLOADED_DATASET') {
+      setSelectedDataset('SORTIE_TAPAS_08_MISFIRE');
+    }
+    post('/api/simulation/profile', { profile_key: profileKey });
+  };
+  
+  const handleInjectFault = (faultName, value) => {
+    if (selectedDataset === 'UPLOADED_DATASET') return;
+    post('/api/simulation/fault', { fault_name: faultName, value });
+  };
+  
+  const handleClearFaults = () => {
+    if (selectedDataset === 'UPLOADED_DATASET') return;
+    post('/api/simulation/clear-faults');
+  };
+
+  const handleReplayControl = (req) => {
+    if (selectedDataset === 'UPLOADED_DATASET') return;
+    post('/api/replay/control', req);
+  };
+
+  const applyUploadedDataset = useCallback((dataset) => {
+    if (!dataset || !dataset.frames?.length) return;
+
+    replayModeRef.current = true;
+
+    const initialHistory = dataset.frames.map((f) => {
+      const t = f.telemetry || {};
+      const cht = t.cht || [];
+      const egt = t.egt || [];
+      return {
+        t: f.timestamp,
+        rpm: t.rpm ?? 0,
+        map: t.map_kpa ?? 0,
+        oilP: t.oil_pressure_kpa ?? 0,
+        oilT: t.oil_temp_c ?? 0,
+        coolant: t.coolant_temp_c ?? 0,
+        vib: t.vibration_rms_g ?? 0,
+        fuel: t.fuel_flow_lph ?? 0,
+        bhp: t.brake_hp ?? 0,
+        volts: t.bus_voltage_v ?? 0,
+        chtMax: cht.length ? Math.max(...cht) : 0,
+        chtSpread: cht.length ? Math.max(...cht) - Math.min(...cht) : 0,
+        egtSpread: egt.length ? Math.max(...egt) - Math.min(...egt) : 0,
+        score: f.ai_diagnostics?.anomaly_score ?? 0,
+        ehi: f.prognostics?.overall_health_index ?? 0,
+      };
+    });
+
+    setHistory(initialHistory.slice(-HISTORY_LEN));
+    setSystemState(dataset.frames[0]);
+    setCustomPlaybackIndex(0);
+  }, []);
+
+  const handleShowResults = async (dataset) => {
+    setUploadedDataset(dataset);
+    setSelectedDataset('UPLOADED_DATASET');
+    applyUploadedDataset(dataset);
+
+    // Call backend AI engine to evaluate with real Isolation Forest & Physics Twin
+    try {
+      const resp = await post('/api/dataset/evaluate', {
+        frames: dataset.frames,
+        title: dataset.title || 'Uploaded Dataset',
+      });
+      if (resp && resp.ok) {
+        const aiEvaluated = await resp.json();
+        if (aiEvaluated?.frames?.length) {
+          const merged = {
+            ...dataset,
+            frames: aiEvaluated.frames,
+          };
+          setUploadedDataset(merged);
+          applyUploadedDataset(merged);
+        }
+      }
+    } catch (e) {
+      console.warn('Backend AI evaluation fallback to client-side engine:', e);
+    }
+  };
+
+  const handleSelectDataset = (key) => {
+    setSelectedDataset(key);
+    if (key === 'SORTIE_TAPAS_07_NOMINAL') {
+      post('/api/replay/control', { action: 'start', sortie_id: 'SORTIE_TAPAS_07_NOMINAL' });
+    } else if (key === 'SORTIE_TAPAS_08_MISFIRE') {
+      post('/api/replay/control', { action: 'start', sortie_id: 'SORTIE_TAPAS_08_MISFIRE' });
+    } else if (key === 'UPLOADED_DATASET') {
+      post('/api/replay/control', { action: 'stop' });
+      if (uploadedDataset) {
+        applyUploadedDataset(uploadedDataset);
+      }
+    }
+  };
+
+  // Continuous stepping through uploaded dataset frames during review
+  useEffect(() => {
+    if (selectedDataset !== 'UPLOADED_DATASET' || !uploadedDataset || !uploadedDataset.frames?.length) {
+      return;
+    }
+
+    const frames = uploadedDataset.frames;
+    if (frames.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setCustomPlaybackIndex((prev) => {
+        const next = (prev + 1) % frames.length;
+        const currentFrame = frames[next];
+        if (currentFrame) {
+          setSystemState(currentFrame);
+        }
+        return next;
+      });
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [selectedDataset, uploadedDataset]);
 
   const telemetry = systemState?.telemetry || {
     rpm: 0, altitude_ft: 0, altitude_m: 0, airspeed_kts: 0, oat_c: 0,
@@ -185,6 +305,7 @@ export default function App() {
   const severity = aiDiagnostics.severity || 'NOMINAL';
   const alarm = useCriticalAlarm({ severity, rootCauses: aiDiagnostics.root_causes });
   const awaitingData = !systemState;
+  const isUploadedDatasetActive = selectedDataset === 'UPLOADED_DATASET';
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -198,6 +319,8 @@ export default function App() {
         onClearFaults={handleClearFaults}
         isReplaying={Boolean(systemState?.replay_state?.is_replay)}
         alarm={alarm}
+        onOpenUpload={() => setIsUploadOpen(true)}
+        isUploadedDatasetActive={isUploadedDatasetActive}
       />
 
       <CriticalBanner alarm={alarm} aiDiagnostics={aiDiagnostics} />
@@ -249,6 +372,10 @@ export default function App() {
               onClearFaults={handleClearFaults}
               replayState={systemState?.replay_state}
               onReplayControl={handleReplayControl}
+              selectedDataset={selectedDataset}
+              onSelectDataset={handleSelectDataset}
+              uploadedDataset={uploadedDataset}
+              onOpenUpload={() => setIsUploadOpen(true)}
             />
           </div>
         </section>
@@ -271,6 +398,14 @@ export default function App() {
         telemetry={telemetry}
         idealPhysics={idealPhysics}
         aiDiagnostics={aiDiagnostics}
+      />
+
+      <UploadDatasetModal
+        isOpen={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
+        onDatasetUploaded={(data) => setUploadedDataset(data)}
+        onShowResults={handleShowResults}
+        currentUploadedDataset={uploadedDataset}
       />
 
       <footer className="border-t border-white/[0.06] mt-2">

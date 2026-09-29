@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, RotateCcw, SlidersHorizontal, Volume2, VolumeX, BellRing } from 'lucide-react';
+import { FileText, RotateCcw, SlidersHorizontal, Volume2, VolumeX, BellRing, Upload } from 'lucide-react';
 import { BrandLockup } from './Brand';
 
 function Readout({ label, value, unit }) {
@@ -30,6 +30,8 @@ export default function CommandBar({
   onClearFaults,
   isReplaying,
   alarm,
+  onOpenUpload,
+  isUploadedDatasetActive,
 }) {
   const severity = aiDiagnostics?.severity || 'NOMINAL';
   const sev = SEVERITY[severity] || SEVERITY.NOMINAL;
@@ -63,7 +65,11 @@ export default function CommandBar({
             <span className="label">Mission</span>
             <span className="font-cond font-semibold text-[13px] text-zinc-200 mt-[3px]">
               {(telemetry?.mission_profile || 'ISR_LOITER').replace(/_/g, ' ')}
-              {isReplaying && <span className="chip chip-mute ml-2 !text-steel-300 !border-steel-500/40">Replay</span>}
+              {isUploadedDatasetActive ? (
+                <span className="chip chip-mute ml-2 !text-steel-300 !border-steel-500/40">Custom Dataset</span>
+              ) : isReplaying ? (
+                <span className="chip chip-mute ml-2 !text-steel-300 !border-steel-500/40">Replay</span>
+              ) : null}
             </span>
           </div>
         </div>
@@ -98,6 +104,11 @@ export default function CommandBar({
               </button>
             </>
           )}
+
+          <button onClick={onOpenUpload} className="btn-quiet" title="Upload custom dataset in JSON or XML format">
+            <Upload className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Upload Dataset</span>
+          </button>
 
           <button onClick={onOpenPhysics} className="btn-quiet" title="Physics model vs measured residuals">
             <SlidersHorizontal className="w-3.5 h-3.5" />

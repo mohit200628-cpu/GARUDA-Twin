@@ -1,0 +1,66 @@
+{
+  "title": "Custom UAV High-Altitude Sortie #202 (JSON)",
+  "description": "Custom recorded telemetry for MALE UAV Archer-NG climbing to 18,000 ft with cylinder thermal variance.",
+  "frames": [
+    {
+      "time_s": 0.0,
+      "altitude_ft": 15500,
+      "rpm": 4920,
+      "throttle_pct": 76.5,
+      "map_kpa": 119.2,
+      "cht": [121.5, 122.8, 120.4, 122.1],
+      "egt": [788.0, 794.0, 786.0, 791.0],
+      "oil_pressure_kpa": 384.5,
+      "oil_temp_c": 93.2,
+      "vibration_rms_g": 1.35
+    },
+    {
+      "time_s": 1.0,
+      "altitude_ft": 15650,
+      "rpm": 4940,
+      "throttle_pct": 77.0,
+      "map_kpa": 119.8,
+      "cht": [122.0, 123.4, 120.8, 122.5],
+      "egt": [790.0, 796.0, 788.0, 793.0],
+      "oil_pressure_kpa": 383.0,
+      "oil_temp_c": 93.6,
+      "vibration_rms_g": 1.40
+    },
+    {
+      "time_s": 2.0,
+      "altitude_ft": 15800,
+      "rpm": 4955,
+      "throttle_pct": 77.5,
+      "map_kpa": 120.1,
+      "cht": [122.6, 124.0, 121.2, 123.0],
+      "egt": [792.0, 798.0, 789.0, 795.0],
+      "oil_pressure_kpa": 381.5,
+      "oil_temp_c": 94.0,
+      "vibration_rms_g": 1.42
+    },
+    {
+      "time_s": 3.0,
+      "altitude_ft": 15950,
+      "rpm": 4960,
+      "throttle_pct": 78.0,
+      "map_kpa": 120.5,
+      "cht": [123.1, 124.5, 121.7, 123.5],
+      "egt": [794.0, 801.0, 791.0, 797.0],
+      "oil_pressure_kpa": 380.0,
+      "oil_temp_c": 94.4,
+      "vibration_rms_g": 1.45
+    },
+    {
+      "time_s": 4.0,
+      "altitude_ft": 16100,
+      "rpm": 4950,
+      "throttle_pct": 77.8,
+      "map_kpa": 120.2,
+      "cht": [123.5, 124.8, 122.0, 123.8],
+      "egt": [795.0, 802.0, 792.0, 798.0],
+      "oil_pressure_kpa": 379.0,
+      "oil_temp_c": 94.7,
+      "vibration_rms_g": 1.48
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dataset name="Custom UAV Flight Test #305 (XML)" title="Sortie #305 Tactical Cruise">
+  <frame>
+    <time_s>0.0</time_s>
+    <altitude_ft>14500</altitude_ft>
+    <rpm>4880</rpm>
+    <throttle_pct>75.0</throttle_pct>
+    <map_kpa>118.0</map_kpa>
+    <cht>119.5, 121.2, 118.8, 120.4</cht>
+    <egt>782.0, 789.0, 780.0, 785.0</egt>
+    <oil_pressure_kpa>385.0</oil_pressure_kpa>
+    <oil_temp_c>91.8</oil_temp_c>
+    <vibration_rms_g>1.28</vibration_rms_g>
+  </frame>
+  <frame>
+    <time_s>1.0</time_s>
+    <altitude_ft>14600</altitude_ft>
+    <rpm>4890</rpm>
+    <throttle_pct>75.2</throttle_pct>
+    <map_kpa>118.2</map_kpa>
+    <cht>120.0, 121.8, 119.2, 120.9</cht>
+    <egt>784.0, 791.0, 782.0, 787.0</egt>
+    <oil_pressure_kpa>384.2</oil_pressure_kpa>
+    <oil_temp_c>92.1</oil_temp_c>
+    <vibration_rms_g>1.30</vibration_rms_g>
+  </frame>
+  <frame>
+    <time_s>2.0</time_s>
+    <altitude_ft>14700</altitude_ft>
+    <rpm>4900</rpm>
+    <throttle_pct>75.5</throttle_pct>
+    <map_kpa>118.5</map_kpa>
+    <cht>120.4, 122.3, 119.6, 121.3</cht>
+    <egt>785.0, 792.0, 783.0, 788.0</egt>
+    <oil_pressure_kpa>383.5</oil_pressure_kpa>
+    <oil_temp_c>92.5</oil_temp_c>
+    <vibration_rms_g>1.32</vibration_rms_g>
+  </frame>
+</dataset>

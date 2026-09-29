@@ -4,7 +4,7 @@ FastAPI Backend Server & Real-Time WebSocket Telemetry Hub
 import asyncio
 import time
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import os
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -53,6 +53,10 @@ class ReplayControlRequest(BaseModel):
     sortie_id: Optional[str] = None
     index: Optional[int] = None
     speed: Optional[float] = 1.0
+
+class DatasetEvaluateRequest(BaseModel):
+    frames: List[Dict[str, Any]]
+    title: Optional[str] = "Uploaded Dataset"
 
 
 @app.get("/api/status")
@@ -120,6 +124,153 @@ def control_replay(req: ReplayControlRequest):
         "is_replaying": replay_engine.is_replaying,
         "replay_sortie_id": replay_engine.replay_sortie_id,
         "replay_index": replay_engine.replay_index
+    }
+
+
+@app.post("/api/dataset/evaluate")
+def evaluate_custom_dataset(req: DatasetEvaluateRequest):
+    """
+    Evaluates uploaded dataset frames using the Garuda Twin AI diagnostic core:
+    Physics Residual Engine, Isolation Forest ML Anomaly Detector, and RUL Estimator.
+    """
+    evaluated_frames = []
+    local_rul_estimator = EngineRULEstimator()
+
+    base_ideal = {
+        "rpm": 4850.0,
+        "map_kpa": 118.0,
+        "cht": [118.5, 120.0, 118.0, 119.5],
+        "egt": [785.0, 790.0, 782.0, 787.0],
+        "oil_pressure_kpa": 380.0,
+        "oil_temp_c": 92.0,
+        "coolant_temp_c": 88.0,
+        "vibration_rms_g": 1.25,
+    }
+
+    total = len(req.frames)
+    for i, frame in enumerate(req.frames):
+        raw = frame.get("telemetry", frame)
+
+        rpm = float(raw.get("rpm", raw.get("RPM", 4850.0)))
+        alt_ft = float(raw.get("altitude_ft", raw.get("alt", raw.get("altitude", 15000.0))))
+        alt_m = round(alt_ft * 0.3048)
+
+        # Pressure resolution
+        pressure_raw = raw.get("pressure", raw.get("Pressure", None))
+        map_kpa = raw.get("map_kpa", raw.get("MAP", None))
+        if map_kpa is None:
+            if pressure_raw is not None:
+                p_val = float(pressure_raw)
+                if p_val <= 5.0:
+                    map_kpa = p_val * 100.0
+                elif 5.0 < p_val < 35.0:
+                    map_kpa = p_val * 3.38639
+                else:
+                    map_kpa = p_val
+            else:
+                map_kpa = base_ideal["map_kpa"]
+        else:
+            map_kpa = float(map_kpa)
+
+        oil_p = raw.get("oil_pressure_kpa", raw.get("oil_p", raw.get("oil_pressure", None)))
+        if oil_p is None:
+            if pressure_raw is not None and float(pressure_raw) >= 200.0:
+                oil_p = float(pressure_raw)
+            else:
+                oil_p = base_ideal["oil_pressure_kpa"]
+        else:
+            oil_p = float(oil_p)
+            if oil_p < 100.0:
+                oil_p = oil_p * 6.89476
+
+        # Temperature resolution
+        raw_cht = raw.get("cht", raw.get("CHT", None))
+        raw_egt = raw.get("egt", raw.get("EGT", None))
+        temp_raw = raw.get("temperature", raw.get("Temperature", raw.get("temp", None)))
+
+        if raw_cht and isinstance(raw_cht, list) and len(raw_cht) >= 4:
+            cht = [float(x) for x in raw_cht[:4]]
+        elif temp_raw is not None:
+            t_val = float(temp_raw)
+            if 55.0 <= t_val <= 200.0:
+                cht = [t_val, t_val + 1.5, t_val - 0.5, t_val + 1.0]
+            else:
+                cht = list(base_ideal["cht"])
+        else:
+            cht = list(base_ideal["cht"])
+
+        if raw_egt and isinstance(raw_egt, list) and len(raw_egt) >= 4:
+            egt = [float(x) for x in raw_egt[:4]]
+        elif temp_raw is not None and float(temp_raw) > 250.0:
+            t_val = float(temp_raw)
+            egt = [t_val, t_val + 4.0, t_val - 3.0, t_val + 2.0]
+        else:
+            egt = list(base_ideal["egt"])
+
+        oil_t = float(raw.get("oil_temp_c", raw.get("oil_t", base_ideal["oil_temp_c"])))
+        coolant_t = float(raw.get("coolant_temp_c", raw.get("coolant_t", base_ideal["coolant_temp_c"])))
+        vib = float(raw.get("vibration_rms_g", raw.get("vibration", raw.get("vib", base_ideal["vibration_rms_g"]))))
+        if vib > 10.0:
+            vib = vib / 9.80665
+
+        fuel_flow = float(raw.get("fuel_flow_lph", raw.get("fuel_flow", 24.5)))
+        bus_v = float(raw.get("bus_voltage_v", raw.get("voltage", 28.2)))
+        throttle = float(raw.get("throttle_pct", raw.get("throttle", 74.0)))
+        brake_hp = float(raw.get("brake_hp", raw.get("power_hp", (rpm / 5000.0) * 115.0)))
+        time_s = float(raw.get("time_s", raw.get("t", i * 0.5)))
+
+        telemetry = {
+            "rpm": round(rpm),
+            "altitude_ft": round(alt_ft),
+            "altitude_m": alt_m,
+            "airspeed_kts": round(105 + (rpm - 4800) * 0.02),
+            "oat_c": round(15.0 - alt_m * 0.0065, 1),
+            "map_kpa": round(map_kpa, 1),
+            "map_inhg": round(map_kpa * 0.2953, 2),
+            "cht": [round(c, 1) for c in cht],
+            "egt": [round(e, 1) for e in egt],
+            "oil_pressure_kpa": round(oil_p, 1),
+            "oil_pressure_psi": round(oil_p * 0.145038, 1),
+            "oil_temp_c": round(oil_t, 1),
+            "coolant_temp_c": round(coolant_t, 1),
+            "vibration_rms_g": round(vib, 2),
+            "fuel_flow_lph": round(fuel_flow, 1),
+            "bsfc_g_kwh": 285.0,
+            "bus_voltage_v": round(bus_v, 1),
+            "alternator_current_a": 18.2,
+            "mission_profile": "CUSTOM_DATASET",
+            "turbo_rpm": round(rpm * 19.5),
+            "brake_hp": round(brake_hp, 1),
+            "throttle_pct": round(throttle, 1),
+            "torque_nm": round((brake_hp * 7127.0) / max(1.0, rpm), 1),
+            "battery_soc_pct": 98.0,
+            "mission_time_s": round(time_s, 1),
+        }
+
+        # Run AI evaluation with physics & ML Isolation Forest
+        anomaly_report = anomaly_detector.evaluate(telemetry, base_ideal)
+        prognostics_report = local_rul_estimator.step_prognostics(telemetry, anomaly_report, flight_dt_hours=0.0005)
+
+        evaluated_frame = {
+            "timestamp": round(time.time() + time_s, 3),
+            "telemetry": telemetry,
+            "ideal_physics": base_ideal,
+            "ai_diagnostics": anomaly_report,
+            "prognostics": prognostics_report,
+            "replay_state": {
+                "is_replay": True,
+                "sortie_id": "CUSTOM_DATASET",
+                "frame_index": i,
+                "total_frames": total,
+                "frame": {"time_s": time_s, "progress_pct": round((i / max(1, total - 1)) * 100, 1)}
+            }
+        }
+        evaluated_frames.append(evaluated_frame)
+
+    return {
+        "status": "SUCCESS",
+        "title": req.title,
+        "frames": evaluated_frames
     }
 
 
