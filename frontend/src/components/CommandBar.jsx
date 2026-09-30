@@ -50,7 +50,7 @@ export default function CommandBar({
           <BrandLockup />
 
           <div className="hidden md:flex items-center gap-2 pl-5 border-l border-white/[0.08]">
-            <span className="font-mono text-xs text-zinc-300">UAV-TAPAS-07</span>
+            <span className="font-mono text-xs text-zinc-300">UAV-TAPAS-BH201</span>
             <span className="chip chip-mute">Boxer-4C Turbo</span>
           </div>
         </div>

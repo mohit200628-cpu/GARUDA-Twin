@@ -56,7 +56,7 @@ export default function CriticalAlertModal({
                 CRITICAL ENGINE ALERT
               </h3>
               <span className="font-mono text-2xs uppercase tracking-[0.12em] text-crit">
-                Active for {fmt(alarm.elapsedS)} · UAV-TAPAS-07
+                Active for {fmt(alarm.elapsedS)} · UAV-TAPAS-BH201
               </span>
             </div>
           </div>
