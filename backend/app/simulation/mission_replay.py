@@ -50,6 +50,7 @@ class MissionReplayEngine:
                 "egt": [785.0, 792.0, 781.0, 788.0],
                 "oil_pressure_kpa": 382.0,
                 "oil_temp_c": 92.4,
+                "coolant_temp_c": 88.0,
                 "vibration_rms_g": 1.25,
                 "anomaly_score": 4.2,
                 "severity": "NOMINAL"
@@ -86,6 +87,7 @@ class MissionReplayEngine:
                 "egt": [784.0, 790.0, round(egt3, 1), 786.0],
                 "oil_pressure_kpa": 375.0,
                 "oil_temp_c": 94.0,
+                "coolant_temp_c": 86.0 if not is_fault else round(max(70.0, 86.0 - (i - 80) * 0.1), 1),
                 "vibration_rms_g": round(vib, 2),
                 "anomaly_score": round(score, 1),
                 "severity": sev

@@ -282,6 +282,36 @@ def generate_health_report():
     ai = state.get("ai_diagnostics", {})
     prognostics = state.get("prognostics", {})
 
+    # Sanitize and clamp all subsystem health percentages strictly within [0.0, 100.0]
+    subsystem_health = {}
+    for sub, val in prognostics.get("subsystem_health", {}).items():
+        try:
+            subsystem_health[sub] = round(max(0.0, min(100.0, float(val))), 1)
+        except (ValueError, TypeError):
+            subsystem_health[sub] = 95.0
+
+    # Sanitize and clamp all hardware degradation percentages strictly within [0.0, 100.0]
+    component_wear = {}
+    for comp, val in prognostics.get("wear_metrics", {}).items():
+        try:
+            component_wear[comp] = round(max(0.0, min(100.0, float(val))), 1)
+        except (ValueError, TypeError):
+            component_wear[comp] = 20.0
+
+    # Sanitize diagnosed anomalies confidence percentages
+    diagnosed_anomalies = []
+    for anom in ai.get("root_causes", []):
+        anom_copy = dict(anom)
+        if "confidence" in anom_copy:
+            try:
+                anom_copy["confidence"] = round(max(0.0, min(100.0, float(anom_copy["confidence"]))), 1)
+            except (ValueError, TypeError):
+                pass
+        diagnosed_anomalies.append(anom_copy)
+
+    overall_health = round(max(0.0, min(100.0, float(prognostics.get("overall_health_index", 95.0)))), 1)
+    anomaly_score = round(max(0.0, min(100.0, float(ai.get("anomaly_score", 4.0)))), 1)
+
     report = {
         "report_id": f"DRDO-EHI-{int(time.time())}",
         "timestamp_utc": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
@@ -291,13 +321,13 @@ def generate_health_report():
         "engine_serial": "GTRE-AP-4C-0941",
         "mission_name": telemetry.get("mission_name", "Surveillance Sortie"),
         "accumulated_engine_hours": prognostics.get("accumulated_flight_hours", 342.5),
-        "overall_health_index": prognostics.get("overall_health_index", 95.0),
+        "overall_health_index": overall_health,
         "anomaly_severity": ai.get("severity", "NOMINAL"),
-        "anomaly_score": ai.get("anomaly_score", 4.0),
+        "anomaly_score": anomaly_score,
         "rul_projection_hours": prognostics.get("rul_hours", {}).get("mean", 850.0),
-        "subsystem_health_audit": prognostics.get("subsystem_health", {}),
-        "component_wear_audit": prognostics.get("wear_metrics", {}),
-        "diagnosed_anomalies": ai.get("root_causes", []),
+        "subsystem_health_audit": subsystem_health,
+        "component_wear_audit": component_wear,
+        "diagnosed_anomalies": diagnosed_anomalies,
         "airworthiness_prescriptions": ai.get("maintenance_advisories", []),
         "operating_summary": {
             "max_rpm_recorded": telemetry.get("rpm", 4800),

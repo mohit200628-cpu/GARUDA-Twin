@@ -112,7 +112,7 @@ export default function CriticalAlertModal({
                   <p className="text-xs text-zinc-400 mt-1.5">{cause.evidence}</p>
                   {playbook.impact && <p className="text-xs text-zinc-300 mt-1">{playbook.impact}</p>}
                 </div>
-                <span className="chip chip-mute shrink-0">{cause.confidence}% conf.</span>
+                <span className="chip chip-mute shrink-0">{cause.confidence}% match</span>
               </div>
 
               <ol className="px-4 py-2 row-div">
